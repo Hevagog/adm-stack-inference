@@ -20,4 +20,6 @@ dependencies = [
     "seaborn>=0.13.2",
     "tqdm>=4.67.1",
     "umap-learn>=0.5.9.post2",
+    "nltk>=3.9.2",
+    "gensim>=4.4.0",
 ]
