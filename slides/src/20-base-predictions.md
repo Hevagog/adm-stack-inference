@@ -6,11 +6,10 @@ We began with a **classical NLP regression pipeline** to predict question scores
 Steps included:
 
 - Text preprocessing  
-  - Replacing code blocks with `CODEBLOCK`
   - Lowercasing + whitespace normalization  
   - Regex tokenization preserving technical tokens (e.g. `c++`, `c#`)  
   - Stopword removal with a technical whitelist  
-  - Optional stemming
+  - Stemming
 
 - Feature engineering  
   - `question_length_words`, `num_code_blocks`, `num_code_lines`  
