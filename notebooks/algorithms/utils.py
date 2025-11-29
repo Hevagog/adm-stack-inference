@@ -11,78 +11,72 @@ def find_representative_tags(
 ):
     if similarity_metric not in ["euclidean", "cosine"]:
         raise ValueError(f"Unsupported similarity metric: {similarity_metric}")
-    h1_t = {centroid_idx: [] for centroid_idx in range(n_centroids)}
+
+    root_centroids = np.asarray(tree_builder.tree["root"]["centroids"])
+
+    # Handle case where actual clusters might be fewer than requested n_centroids
+    actual_n_centroids = root_centroids.shape[0]
 
     cluster_means = {}
-    pattern_cluster = re.compile(r"_c(\d+)$")
-    for key in tree_builder.tree["root"]["children"]:
-        m = pattern_cluster.search(key)
-        if not m:
-            continue
-        idx = int(m.group(1))
-        if 0 <= idx < n_centroids:
-            centroids = np.asarray(tree_builder.tree[key]["centroids"])
-            if centroids.size == 0:
-                continue
-            cluster_means[idx] = np.mean(centroids, axis=0)
+    for i in range(actual_n_centroids):
+        cluster_means[i] = root_centroids[i]
 
+    all_embeddings = tree_builder.norm_embeddings
     N = len(tags)
-    tag_paths = [None] * N
-    cluster_idxs = np.full(N, -1, dtype=int)
-    embeddings = []
+    D = all_embeddings.shape[1]
 
-    pattern_any_c = re.compile(r"_c(\d+)")
+    cluster_idxs = np.full(N, -1, dtype=int)
+    pattern_root_child = re.compile(r"root_c(\d+)")
 
     for i in range(N):
-        tag_path = tree_builder.tag_to_path[i]
-        tag_paths[i] = tag_path
+        # tag_to_path gives the leaf path, e.g., "root_c5_c2" or "root_c0"
+        tag_path = tree_builder.tag_to_path.get(i, "")
 
-        m = pattern_any_c.search(tag_path)
+        # We extract the first number after root_c to identify the Level 1 cluster
+        m = pattern_root_child.search(tag_path)
         if m:
             cluster_idxs[i] = int(m.group(1))
-        else:
-            cluster_idxs[i] = -1  # ignore
 
-        emb = np.asarray(tree_builder.tree[tag_path]["centroid"])
-        embeddings.append(emb)
-
-    embeddings = np.stack(embeddings)  # shape (N, D)
-    D = embeddings.shape[1]
-
+    # Initialize result dictionary
     h1_t = {idx: None for idx in range(n_centroids)}
 
+    # Loop through clusters to find representatives
     for idx in range(n_centroids):
         if idx not in cluster_means:
             continue
 
-        mean = cluster_means[idx].reshape(1, D)  # (1, D)
+        mean = cluster_means[idx].reshape(1, D)
+
         mask = cluster_idxs == idx
         if not mask.any():
             continue
 
-        candidate_embs = embeddings[mask]  # (m, D)
+        true_indices = np.nonzero(mask)[0]
+        candidate_embs = all_embeddings[mask]  # (m, D)
 
         if similarity_metric == "euclidean":
-            diffs = candidate_embs - mean  # broadcasting (m, D)
-            dists = np.linalg.norm(diffs, axis=1)  # (m,)
+            diffs = candidate_embs - mean
+            dists = np.linalg.norm(diffs, axis=1)
             argmin = int(np.argmin(dists))
             closest_dist = float(dists[argmin])
-        else:  # cosine similarity
-            mean_norm = mean / (np.linalg.norm(mean) + 1e-10)  # (1, D)
-            candidate_norms = candidate_embs / (
+        else:  # cosine
+            mean_norm = mean / (np.linalg.norm(mean) + 1e-10)
+            cand_norm = candidate_embs / (
                 np.linalg.norm(candidate_embs, axis=1, keepdims=True) + 1e-10
-            )  # (m, D)
-            cosine_sims = np.dot(candidate_norms, mean_norm.T).squeeze()  # (m,)
+            )
+
+            cosine_sims = np.dot(cand_norm, mean_norm.T).squeeze()
+            if cosine_sims.ndim == 0:
+                cosine_sims = np.array([cosine_sims])  # single item case
+
             argmin = int(np.argmax(cosine_sims))
             closest_dist = float(1.0 - cosine_sims[argmin])
 
-        true_indices = np.nonzero(mask)[0]
         chosen_tag_idx = true_indices[argmin]
         closest_tag_name = tags[chosen_tag_idx]
-        closest_tag_emb = embeddings[chosen_tag_idx]
+        closest_tag_emb = all_embeddings[chosen_tag_idx]
 
-        cluster_tag_indices = true_indices
-        cluster_tag_names = [tags[i] for i in cluster_tag_indices]
+        cluster_tag_names = [tags[i] for i in true_indices]
 
         top_popular_tags = []
         tag_counter = Counter(cluster_tag_names)
@@ -94,6 +88,7 @@ def find_representative_tags(
             "closest_dist": closest_dist,
             "cluster_mean": cluster_means[idx],
             "tag_embedding": closest_tag_emb,
+            "cluster_names": cluster_tag_names,
             "cluster_size": len(cluster_tag_names),
             "top_5_popular_tags": top_popular_tags,
         }

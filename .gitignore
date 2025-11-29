@@ -1,3 +1,5 @@
 .env
 .venv/
 data/stackexchange_dataset.csv
+data/
+*.pyc
