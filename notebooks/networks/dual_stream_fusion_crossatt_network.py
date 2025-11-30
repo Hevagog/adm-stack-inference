@@ -46,7 +46,9 @@ class DSF_CrossAttn_Classifier(nn.Module):
         key_val = b_feat.unsqueeze(1)  # Body is the Context
 
         # Cross Attention: "Given this Title, which parts of the Body Embedding are relevant?"
-        attn_output, _ = self.cross_attn(query, key_val, key_val)  # (N, 1, 1024)
+        attn_output, attention_weights = self.cross_attn(
+            query, key_val, key_val
+        )  # (N, 1, 1024)
 
         # We add the attention context TO the original title features
         t_contextual = self.layer_norm(t_feat + attn_output.squeeze(1))  # (N, 1024)
@@ -55,4 +57,4 @@ class DSF_CrossAttn_Classifier(nn.Module):
 
         features = torch.cat([fused, num_tags], dim=1)  # (N, 2049)
 
-        return self.classifier(features)
+        return self.classifier(features), attention_weights
