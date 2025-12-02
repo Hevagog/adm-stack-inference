@@ -27,6 +27,11 @@
 
 ## Limitations of XGBoost Approach
 
+- As a tree-based model, XGBoost treats input dimensions largely independently.
+- It struggles to capture the complex, non-linear semantic interactions present in text embeddings.
+- Training on 4096-dimensional dense embeddings is computationally expensive for gradient boosting trees.
+- It was impossible to tune hyperparameters effectively due to long training time.
+
 ## Pytorch
 
 - For better modeling of the multi-label nature of the problem, we turned to Neural Networks using PyTorch.
