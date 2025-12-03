@@ -66,6 +66,6 @@ just install
 
 ## References
 
-- **[@Schubert_2021]**: Schubert, E., Lang, A., & Feher, G. (2021). *Accelerating Spherical k-Means*. Similarity Search and Applications.
-- **[@YANG2024112358]**: Yang, Y., et al. (2024). *Dual-stream fusion network with multi-head self-attention for multi-modal fake news detection*. Applied Soft Computing.
-- **[@benbaruch2021asymmetriclossmultilabelclassification]**: Ben-Baruch, E., et al. (2021). *Asymmetric Loss For Multi-Label Classification*. arXiv:2009.14119.
+- <a id="Schubert_2021">**[@Schubert_2021]**</a>: Schubert, E., Lang, A., & Feher, G. (2021). *Accelerating Spherical k-Means*. In Similarity Search and Applications (pp. 217–231). Springer International Publishing. [https://doi.org/10.1007/978-3-030-89657-7_17](https://doi.org/10.1007/978-3-030-89657-7_17)
+- <a id="benbaruch2021asymmetriclossmultilabelclassification">**[@benbaruch2021asymmetriclossmultilabelclassification]**</a>: Ben-Baruch, E., Ridnik, T., Zamir, N., Noy, A., Friedman, I., Protter, M., & Zelnik-Manor, L. (2021). *Asymmetric Loss For Multi-Label Classification*. arXiv preprint arXiv:2009.14119. [https://arxiv.org/abs/2009.14119](https://arxiv.org/abs/2009.14119)
+- <a id="YANG2024112358">**[@YANG2024112358]**</a>: Yang, Y., Liu, J., Yang, Y., & Cen, L. (2024). *Dual-stream fusion network with multi-head self-attention for multi-modal fake news detection*. Applied Soft Computing, 167, 112358. [https://doi.org/10.1016/j.asoc.2024.112358](https://doi.org/10.1016/j.asoc.2024.112358)
