@@ -46,13 +46,15 @@
 
 ## Results
 
-| Model | Features | Validation RMSE | Validation MAE | Validation R² | Test RMSE | Test MAE | Test R² |
-|-------|----------|-----------------|----------------|---------------|-----------|----------|---------|
-| DSF-MHSA | title + body embeddings | 146.77 | 29.47 | 0.263 | 134.24 | 30.40 | 0.199 |
-| DSF-CrossAttention | title + body embeddings | 158.12 | 30.22 | 0.145 | 135.27 | 29.80 | 0.186 |
-| Body MLP | question_text_embedding | 156.48 | 33.61 | 0.163 | 137.57 | 33.34 | 0.158 |
-| Title MLP | title_embedding | 155.33 | 27.66 | 0.175 | 138.73 | 28.20 | 0.144 |
-| Mean baseline | Constant | 171.02 | 36.79 | -0.000 | 149.97 | 37.43 | -0.000 |
+\footnotesize
+
+| Model | Input | Val RMSE | Val MAE | Val R² | Test RMSE | Test MAE | Test R² |
+|-------|-------|----------|---------|--------|-----------|----------|---------|
+| DSF-MHSA | Title+Body | 146.77 | 29.47 | 0.263 | 134.24 | 30.40 | 0.199 |
+| DSF-CrossAttn | Title+Body | 158.12 | 30.22 | 0.145 | 135.27 | 29.80 | 0.186 |
+| Body MLP | Body | 156.48 | 33.61 | 0.163 | 137.57 | 33.34 | 0.158 |
+| Title MLP | Title | 155.33 | 27.66 | 0.175 | 138.73 | 28.20 | 0.144 |
+| Mean | Constant | 171.02 | 36.79 | 0.000 | 149.97 | 37.43 | 0.000 |
 
 ---
 
