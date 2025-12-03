@@ -5,8 +5,26 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastparquet>=2024.11.0",
+    "google-genai>=1.49.0",
     "ipykernel>=7.0.1",
+    "matplotlib>=3.10.7",
+    "numba>=0.62.1",
+    "ollama>=0.6.0",
+    "optuna>=4.6.0",
     "pandas>=2.3.3",
+    "pyarrow>=22.0.0",
     "python-dotenv>=1.1.1",
     "requests>=2.32.5",
+    "scikit-learn>=1.7.2",
+    "seaborn>=0.13.2",
+    "tqdm>=4.67.1",
+    "umap-learn>=0.5.9.post2",
+    "nltk>=3.9.2",
+    "gensim>=4.4.0",
+    "wordcloud>=1.9.4",
+    "plotly>=6.5.0",
+    "nbformat>=5.10.4",
+    "xgboost>=3.1.2",
+    "torch>=2.7.1",
 ]
