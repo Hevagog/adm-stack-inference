@@ -3,3 +3,5 @@
 data/stackexchange_dataset.csv
 data/
 *.pyc
+*.pth
+t5_tag_predictor/
