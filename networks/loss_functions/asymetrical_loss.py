@@ -62,4 +62,4 @@ class AsymmetricLoss(Module):
             # Multiply the basic loss by the focusing weight
             loss *= one_sided_w
 
-        return loss.sum()
+        return loss.sum() / x.size(0)

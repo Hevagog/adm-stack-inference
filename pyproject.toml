@@ -27,4 +27,9 @@ dependencies = [
     "nbformat>=5.10.4",
     "xgboost>=3.1.2",
     "torch>=2.7.1",
+    "transformers>=4.57.3",
+    "accelerate>=1.12.0",
+    "h5py>=3.15.1",
+    "datasets>=4.4.1",
+    "evaluate>=0.4.6",
 ]
