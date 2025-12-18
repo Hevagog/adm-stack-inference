@@ -1,7 +1,10 @@
 ---
-title: Advanced Data Mining - Stack Inference
-subtitle: My Favorite Course
-author: Mateusz Mazur (CWL 1)
+title: StackExchange Prediction and Analysis
+subtitle: Project for Advanced Data Mining Course
+author: 
+  - Tomasz Kawiak
+  - Tomasz Makowski
+  - Mateusz Mazur
 date: \today
 fontsize: 10pt
 geometry: vmargin=2cm, hmargin=1.5cm

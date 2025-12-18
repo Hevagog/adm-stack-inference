@@ -5,3 +5,4 @@ data/
 *.pyc
 *.pth
 t5_tag_predictor/
+docs/report/assets
