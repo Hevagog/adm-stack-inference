@@ -4,13 +4,51 @@ The path to generating robust predictive models required significant methodologi
 
 ## Embedding Generation
 
+To transform the textual data (titles, tags, and question bodies) into numerical feature representations, we utilized **`qwen3-embedding:8b`**, an open-source model capable of generating **4096-dimensional vectors** [@qwen_embedding].
 Textual data (titles and question bodies) was transformed into **4096-dimensional vectors** using the open-source embedding model **`qwen3-embedding:8b`**.
 
-Initial efforts to leverage transformer tokenization for sequence-aware embeddings quickly proved computationally prohibitive, necessitating a fallback to simpler pooled embeddings (mean pooling) due to projected processing times exceeding 40 hours. Furthermore, during the embedding process, **147 samples were found to be corrupted** (containing NaN or Infinite values), which required a dedicated remediation process involving reloading the base model and clamping the generated embeddings to a safe float16 range before storage.
+We implemented two distinct embedding strategies:
 
-## Dimensionality Reduction and Clustering
+### 1. Global Document Embedding (Baseline)
 
-The high dimensionality (4096 dimensions) and high cardinality (22,753 unique tags) presented immediate barriers to traditional clustering techniques. As we still wanted to retain semantic richness in the tag space, we explored various dimensionality reduction and clustering strategies.
+- This approach served as the baseline due to its simplicity and relative computational speed.
+- Embed each question body, title and tag individually into an embedding vector.
+- This method assumes that the semantic context of the entire document can be effectively compressed into a single 4096-dimensional vector (using `float64` precision) without significant information loss.
+- Computation required approximately 6 hours using the `ollama` library [@ollama]. The resulting dataset occupied 3.3 GB of storage.
+
+### 2. Sequential Token Embedding
+
+- To address potential information loss in the baseline approach, we hypothesized that a single vector might fail to capture complex dependencies in longer texts.
+- Instead of pooling the text into one vector, we maintained a sequence of embeddings to preserve token-level knowledge. We defined a fixed sequence length of 4 tokens for the title and 32 tokens for the body, resulting in a distinct embedding vector for each token.
+- Implementation changes:
+    - Due to the limitations of `ollama` in the terms of appropriate tokenizer for our model, as well as inefficient resource management during embedding, we've switched to *Hugging Face* `transformers` library.
+    - Because of the exponential increase in data size and compute time, we reduced the floating-point precision from `float64` $\to$ `float32`.
+- These optimizations reduced the estimated compute time from 40 hours to approximately 13 hours.
+- The resulting embeddings required 27 GB of space. Due to memory constraints preventing the dataset from being loaded entirely into RAM, we utilized the Hierarchical Data Format (HDF5) for efficient storage and access [@hdf5].
+
+## Embedding Analysis
+
+After the embedding phase, we wanted to verify the validy of the topology and density of the resulting embedding space. Specifically, we wanted to verify that the embeddings captured sufficient semantic overlap between questions to facilitate meaningful clustering. 
+
+To measure this, we analyzed the *Nearest-Neighbour Cosine Similarity*. Using a
+subset of the question embeddings, we performed the following steps:
+
+- Normalized the embeddings (the resulting embeddings from `ollama`
+theoretically should be normalized, but it's better to normalize it anyway,
+since it does not affect the data).
+- We utilized the `NearestNeighbors` algorithm (from `scikit-learn`) to locate the closest non-identical neighbor ($k=1$) for each data point.
+- We calculated the cosine similarity for these pairs, defined as $1 - \text{cosine\_distance}$.
+
+![Nearest-Neighbour cosine similarity distribution](img/03/tags-nn-cosine-sim.png){#fig:tags-nn-cosine-sim width=60%}
+
+As we can see in Figure [@fig:tags-nn-cosine-sim], the distribution of nearest-neighbor similarities is approximately Gaussian and centered around 0.65.
+
+- The lack of data points near 0.0 indicates that very few questions are "isolated" in the vector space; almost every question has a semantically related counterpart.
+- The unimodal distribution suggests a well-structured manifold where local neighborhoods are consistent. This confirms that the embedding model (`qwen3-embedding`) successfully mapped semantically similar questions to adjacent regions in the high-dimensional space, providing a strong foundation for the subsequent clustering phases.
+
+# Dimensionality Reduction and Clustering
+
+The high dimensionality (4096 dimensions) and high cardinality (22,753 unique tags) presented immediate barriers to traditional clustering techniques, not to mention classification task. As we still wanted to retain semantic richness in the tag space, we explored various dimensionality reduction and clustering strategies.
 
 ### Initial tries (HDBSCAN and UMAP)
 

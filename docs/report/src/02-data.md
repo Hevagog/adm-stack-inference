@@ -1,6 +1,6 @@
 #  The Data
 
-The analysis is based on a dataset comprising **100,000 questions** extracted from the StackExchange platform (StackOverflow). The aim was to get to know the data characteristics and see what challenges may arise during modeling and what in particular can be predicted from the textual content embeddings.
+The analysis is based on a dataset comprising of **100,000 questions** extracted from the StackExchange platform (StackOverflow) using StackExchange API. The aim was to get to know the data characteristics and see what challenges may arise during modeling as well as what in particular can be predicted from the textual content.
 
 ## Data Characteristics and Preprocessing
 
@@ -33,13 +33,13 @@ Analysis of the `time_to_accepted_answer_hours` for this small subset revealed t
 
 ![Gaussian Mixture Model Fit to Log Time to Accepted Answer](img/02/gmm-to-acc-ans.png){#fig:gmm-acc-ans width=60%}
 
-This result led to the conclusion that answer-based analysis was challenging due to the lack of sufficient data points with defined accepted answer characteristics.
+This result led to the conclusion that answer-based analysis was challenging due to the lack of sufficient data points with defined accepted answer characteristics. Scraping more data, just to analyze only a fraction of questions seemed infeasible, that's why we dropped this idea.
 
 ## Tag Cardinality and Filtering
 
-The raw dataset contained an excessively large vocabulary of **22,753 unique tags**. Initially, the 7,684 most frequent tags were analyzed. The top five most frequent initial tags were `python` (1528), `c#` (746), `javascript` (703), `c++` (689), and `java` (592).
-
-The majority of questions had only one tag (38,547), although multi-label instances were present (3,015 questions had 2 tags; 464 had 3).
+The raw dataset contained an excessively large vocabulary of **22,753 unique tags**. The top five most frequent initial tags were `python` (1528), `c#` (746), `javascript` (703), `c++` (689), and `java` (592).
+For simplicity sake, we initially focused on the 7,684 most frequent tags.
+The majority of questions in this subset had only one tag (38,547), although multi-label instances were present (3,015 questions had 2 tags; 464 had 3).
 
 To create a manageable feature space for initial classification attempts, two approaches were considered:
 
@@ -48,11 +48,11 @@ To create a manageable feature space for initial classification attempts, two ap
 
 ![Tag frequencies for most frequent tags](img/02/tag-freq.png){#fig:tag-freq width=60%}
 
-After a preliminary analysis, the second approach was chosen to retain semantic richness while reducing dimensionality and making the challenge more interesting.
+After a preliminary analysis, the second approach was chosen to retain semantic richness while reducing dimensionality and making the challenge more fun and interesting.
 
 ## Question Score Distribution
 
-The raw scores (`question_score`) ranged widely from -20 to 27,487. The score distribution was heavily skewed around zero ([@fig:score-dist]). We considered grouping this continuous variable into five classes of uneven frequencies:
+The raw scores (`question_score`) ranged widely from -20 up to 27,487. The score distribution was heavily skewed around zero ([@fig:score-dist]). We considered grouping this continuous variable into five classes of uneven frequencies:
 
 *   **Bad:** $(-\text{inf}, -1]$
 *   **Neutral:** $0$

@@ -1,6 +1,7 @@
 
 COURSE_SHORTNAME := "adm"
 AUTHOR_SHORTNAME := "kawiak-makowski-mazur"
+BIB := "bibliography.bib"
 
 # Generate PDFs for the chosen lab (pass lab name as argument; defaults to most recent lab)
 # You can also treat lab name as a project name if you want to create one report for a standalone project
@@ -13,4 +14,6 @@ pdf lab=`ls -td */ | grep --color=never lab | head -n 1 | sed 's:/$::'`:
     --highlight-style=../report-theme/pygments-bg.theme \
     --lua-filter=../filters/double_terminal.lua \
     --lua-filter=../filters/update_title_with_logo.lua \
+    --citeproc \
+    --bibliography={{BIB}} \
     
