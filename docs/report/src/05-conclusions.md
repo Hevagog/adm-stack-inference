@@ -17,4 +17,4 @@ The overall project successfully navigated several data processing and modeling 
 
 ## Future Work
 
-Future research should focus on mitigating the score prediction problem by incorporating features that capture non-textual quality signals, such as user reputation or time-of-day posting biases, which were outside the scope of this content-based embedding analysis. For classification, exploring even deeper transformer architectures for sequence-aware embedding generation (if computational resources allow) could further enhance performance beyond the current pooled embedding methods.
+Future research should focus on mitigating the score prediction problem by incorporating features that capture non-textual quality signals, such as user reputation or time-of-day posting biases, which were outside the scope of this content-based embedding analysis. For classification, exploring even deeper transformer architectures for sequence-aware embedding generation could further enhance performance beyond the current pooled embedding methods.

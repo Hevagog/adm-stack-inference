@@ -14,13 +14,11 @@ This XGBoost model trained for 599 minutes. It achieved a **Weighted F1 Score of
 
 ### Neural Network Architectures
 
-<!-- @NOTE: finished here -->
-
-Neural Networks (NNs) were adopted to natively support multi-label output and leverage advanced techniques like Attention Mechanisms.
+To improve baseline performance, several neural network architectures were explored to better capture the semantic relationships in the embeddings and to natively handle the multi-label nature of the task.
 
 #### Simple MLP Baseline
 
-A basic Multi-Layer Perceptron (MLP) trained on the question body embeddings with `BCEWithLogitsLoss` achieved a weighted F1 score of approximately 0.6790. This confirmed the need for richer architectures that could utilize both title and body context simultaneously.
+A basic Multi-Layer Perceptron (MLP) trained on the question body embeddings with `BCEWithLogitsLoss` achieved a weighted F1 score of approximately **0.6790**. This confirmed the need for richer architectures that could utilize both title and body context simultaneously.
 
 #### Dual-Stream Fusion Network (DSF)
 
@@ -37,50 +35,68 @@ The DSF models used dual streams to process Title embeddings and Body embeddings
     *   Additional regularization, **Manifold Mixup**, was applied to the embeddings during training to encourage smoother decision boundaries in the latent space.
     *   Trained over 100 epochs (~60 minutes) using OneCycleLR scheduling, this model achieved the best outcome: **F1 Micro 0.7253** and **F1 Weighted 0.7196**.
 
-| **Table 2: Summary of Tag Prediction Results (Weighted F1 Score)** |
-| :--- | :---: |
+![Per tag performance of DSF with Cross-Attention Fusion](img/04/crossatt-performance.png){#fig:dsf-performance height=95%}
+
+### Summary of Results
+
+As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion outperformed all other models, demonstrating the effectiveness of attention-based fusion and advanced loss functions in multi-label tag prediction tasks.
+
 | **Model** | **F1 Score (Weighted)** |
+| :--- | :---: |
 | XGBoost (Multiclass Approximation) | 0.6882 |
 | Baseline MLP | 0.6790 |
 | DSF with MHSA Fusion | 0.7110 |
 | **DSF with Cross-Attention Fusion** | **0.7196** |
 
+Table: Summary of Tag Prediction Results. {#tbl:tag-prediction-results}
+
+The final model mainly has trouble with tags like "import," "installation," and "validation," which probably suggests that it is difficult to distinguish between common technical noise and particular topical intent. The Asymmetric Loss (ASL) may have over-suppressed terms like "import" as "easy negatives" because they appear as boilerplate in nearly every code snippet. Furthermore, the model's inability to handle specialized tags like "asp.net-web-api" indicates that the Cross-Attention mechanism may occasionally lack a detailed enough Title "Query" to extract particular nuances from the verbose Body text.
+
+<!-- 
 ### Attention Analysis Visualization
 
 Post-training analysis included visualizing the internal workings of the Cross-Attention mechanism to understand how the 8 attention heads weighted the relationship between the Title and Body embeddings for specific samples. This visualization provided diagnostic insight into the model's decision process (Figures 9 and 10).
-
-| **Figure 9: Cross-Attention Alignment per Head (Sample #0)** | **Figure 10: Cross-Attention Alignment per Head (Sample #2)** |
-| :---: | :---: |
-| @TODO: Insert Figure: Cross-Attention Alignment per Head (Sample #0) (Source:) | @TODO: Insert Figure: Cross-Attention Alignment per Head (Sample #2) (Source:) |
-
+ -->
 
 ##  Score Prediction
 
+Our secondary regression task focused on predicting the question score, which reflects community engagement and perceived quality.
 The goal was to predict the raw integer question score using only the embedded textual content (regression task). This task was inherently challenging due to the high variance and sparse nature of scores (mean score of 23.55, but max score of 27,487, with most scores clustered near zero).
 
-### Baseline Comparison (Traditional ML vs. Embeddings)
+### Traditional ML Baseline 
 
-An initial exploration using traditional feature extraction (TF-IDF) and statistical dimensionality reduction (Truncated SVD, a form of Latent Semantic Analysis) provided a challenging context for the deep learning models:
+To establish a performance floor, we conducted an initial exploration using traditional NLP techniques, combining TF-IDF feature extraction with Truncated SVD (Latent Semantic Analysis) for dimensionality reduction. We benchmarked several configurations, including:
+
+- Linear Models: TF-IDF (with variations in n-grams and stemming) paired with Ridge Regression.
+- Ensemble Methods: Gradient Boosting (GBR) utilizing TF-IDF, SVD, and engineered "extra features."
+- Baseline Comparisons: Standard Bag-of-Words (BoW) and a simple mean-prediction baseline.
+
+The results were underwhelming:
+
 *   The mean baseline achieved an $R^2$ of $-0.000196$ (Test RMSE 149.97).
-*   The best traditional model, **TF-IDF + SVD + Ridge**, managed a Test $R^2$ of **0.0074** (Test RMSE 275.05) on the raw score target. This low $R^2$ score reinforced the difficulty of explaining score variance using extracted features alone.
+*   The best traditional model, **TF-IDF + SVD + Ridge**, managed a Test $R^2$ of **0.0074** (Test RMSE 275.05) on the raw score target. 
+
+This near-zero R2 score underscores the inherent difficulty of the task: traditional frequency-based features are insufficient for capturing the complex, non-linear relationships that drive community engagement (scores) on Stack Overflow. This served as a strong justification for moving toward the deep learning approaches detailed below.
 
 ### Deep Learning Regressors
 
-Single-stream MLPs (using only Title or Body embeddings) and the dual-stream DSF architectures (MHSA and Cross-Attention variants) were adapted for regression using Mean Squared Error (MSE) loss. The input features included the embeddings and a normalized tag count feature (clipped to).
+To evaluate the predictive power of neural architectures on numerical outcomes, we adapted the single-stream MLPs and the dual-stream DSF variants for regression by utilizing a Mean Squared Error (MSE) loss function. In addition to the semantic embeddings, we integrated a normalized, clipped tag count feature to provide the model with a proxy for question complexity.
 
-All deep learning models significantly outperformed the traditional mean baseline ($R^2 \approx 0.000$).
+As shown in [@tbl:score-regression-results], all deep learning configurations achieved a substantial performance leap over the traditional baselines ($R^2 \approx 0.000$).
 
-| **Table 3: Score Regression Performance on Test Set (using Embeddings)** |
-| :--- | :---: | :---: | :---: |
 | **Model** | **Input** | **Test RMSE** | **Test R²** |
-| **DSF-MHSA Regressor** | Title + Body Embeddings | 134.24 | **0.199** |
-| DSF-CrossAttention Regressor | Title + Body Embeddings | 135.27 | 0.186 |
-| Body MLP | Body Embedding Only | 137.57 | 0.158 |
-| Title MLP | Title Embedding Only | 138.73 | 0.144 |
+| :--- | :---: | :---: | :---: |
 | Mean Baseline | Constant | 149.97 | 0.000 |
+| Title MLP | Title Embedding Only | 138.73 | 0.144 |
+| Body MLP | Body Embedding Only | 137.57 | 0.158 |
+| DSF-CrossAttention Regressor | Title + Body Embeddings | 135.27 | 0.186 |
+| **DSF-MHSA Regressor** | Title + Body Embeddings | 134.24 | **0.199** |
 
-The **DSF-MHSA Regressor** achieved the highest performance, explaining approximately **19.9%** of the score variance on the test set. Diagnostic analysis showed that predictions tended to cluster accurately near zero/low scores, but the model struggled significantly to predict high scores correctly (Figure 11).
+Table: Score Regression Performance on Test Set (using Embeddings). {#tbl:score-regression-results}
 
-| **Figure 11: Predicted vs Actual Scores (DSF-MHSA, Filtered Range)** | **Figure 12: Residual Distribution (DSF-MHSA, Filtered Range)** |
-| :---: | :---: |
-| @TODO: Insert Figure: Predicted vs Actual Scores (DSF-MHSA, Filtered to <200) (Source: or) | @TODO: Insert Figure: Residual distribution (DSF-MHSA, Filtered to <200) (Source: or) |
+
+The DSF-MHSA Regressor emerged as the top performer, explaining approximately 19.9% of the score variance. Interestingly, in the regression context, the global focus of Multi-Head Self-Attention (MHSA) slightly outperformed the more targeted Cross-Attention mechanism.
+
+Despite the improvement, diagnostic analysis revealed a common challenge in social data regression: while the model accurately predicts the vast majority of low-scoring posts, it struggles to capture the "viral" outliers or high-score peaks (@fig:scores-pred-actual). This suggests that high scores may be driven by external temporal factors or community dynamics not fully captured within the text embeddings alone.
+
+![Predicted vs Actual Scores (DSF-MHSA, Filtered Range)](img/04/scores-pred-actual.png){#fig:scores-pred-actual width=100%}
