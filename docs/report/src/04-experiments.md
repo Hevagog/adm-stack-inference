@@ -2,11 +2,11 @@
 
 ##  Tag Prediction
 
-The primary classification goal was to predict the appropriate semantic tag centroid(s) for a given question using its 4096-dimensional title and body embeddings.
+The primary classification goal was to predict the appropriate semantic tag centroid(s) for a given question using its 4096-dimensional body embeddings.
 
 ### XGBoost Baseline
 
-As a baseline, an XGBoost model was trained on question body embeddings. To simplify the initial evaluation, the inherently multi-label task was reduced to a multiclass classification problem. The target for each question was mapped to a single label via a majority vote mechanism, selecting the centroid (or tag group) containing the highest frequency of the question’s original tags.
+As a baseline, an XGBoost [@Chen_2016] model was trained on question body embeddings. To simplify the initial evaluation, the inherently multi-label task was reduced to a multiclass classification problem. The target for each question was mapped to a single label via a majority vote mechanism, selecting the centroid (or tag group) containing the highest frequency of the question’s original tags.
 
 This XGBoost model trained for 599 minutes. It achieved a **Weighted F1 Score of 0.6882** (and accuracy of 0.6928). The limitation of this approach was its inability to effectively model the complex, non-linear semantic interactions embedded in the 4096-dimensional vectors, forcing it to treat the dimensions largely independently. Nevertheless, this result provided a solid benchmark for subsequent deep learning models.
 
@@ -20,9 +20,9 @@ To improve baseline performance, several neural network architectures were explo
 
 A basic Multi-Layer Perceptron (MLP) trained on the question body embeddings with `BCEWithLogitsLoss` achieved a weighted F1 score of approximately **0.6790**. This confirmed the need for richer architectures that could utilize both title and body context simultaneously.
 
-#### Dual-Stream Fusion Network (DSF)
+#### Dual-Stream Fusion Network (DSF) \newline
 
-The DSF models used dual streams to process Title embeddings and Body embeddings separately before combining them.
+Inspired by the 'Dual-stream fusion network with multi-head self-attention for multi-modal fake news detection' paper, we decided to implement our custom DSF model, where we used two streams of data: Title embedding and Body embedding.
 
 1.  **DSF with Multi-Head Self-Attention (MHSA):**
     *   This initial fusion mechanism involved concatenating the processed embeddings and applying MHSA, inspired by multi-modal classification work.
@@ -36,6 +36,42 @@ The DSF models used dual streams to process Title embeddings and Body embeddings
     *   Trained over 100 epochs (~60 minutes) using OneCycleLR scheduling, this model achieved the best outcome: **F1 Micro 0.7253** and **F1 Weighted 0.7196**.
 
 ![Per tag performance of DSF with Cross-Attention Fusion](img/04/crossatt-performance.png){#fig:dsf-performance height=95%}
+
+#### Seq2Seq Model \newline
+
+Instead of thinking about our task as a classification task, we could rephrase
+is as a Sequence to Seqence problem, where we want to model one sequence
+(question embedding) into another (tag(s) embedding(s)). 
+This approach has the biggest potential out of all mentioned earlier, since we
+can leverage the unprecedented rise of LLMs, by taking a pre-trained model (in
+our case `t5-small`) and fine-tune it for our task.
+
+The biggest advantage is also it's biggest disadvantage—all modern models
+require prohibitively large amount of compute, which forced us to pick a
+relatively small (60M) model. We picked `t5-small` because it was trained
+primarily on summarization and translation task, which is exactly what we want
+this model to do.
+
+After 5 hours of training, we've achieved F1 micro score of 0.6676 and F1 macro
+of 0.625. While this may not sound as impressive as previous models, we have to
+keep in mind, the size of this model, and the transformers innate need for huge
+amount of data.
+
+![Training Loss and Validation F1 over Steps](img/04/s2s-train.png){#fig:s2s-train width=80%}
+
+Another advantage of this model is the ease of use in terms of user readable
+format. Using the `transformers` we can easily create quick predicting function
+for any given question out of data:
+
+```python
+t = "How do I reverse a list?"
+b = "I have a list [1, 2, 3] and I want [3, 2, 1]. slicing doesn't work for me. I'm thinking of using a pandas library "
+print(predict_custom_question(t, b))
+dataframe, python, sorting
+```
+
+What's also powerful, is that the model itself infers how many tags are needed
+for each question.
 
 ### Summary of Results
 
