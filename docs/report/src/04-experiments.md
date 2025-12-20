@@ -133,7 +133,7 @@ The goal was to predict the raw integer question score using only the embedded t
 To establish a performance floor, we conducted an initial exploration using traditional NLP techniques, combining TF-IDF feature extraction with Truncated SVD (Latent Semantic Analysis) for dimensionality reduction. We benchmarked several configurations, including:
 
 - Linear Models: TF-IDF (with variations in n-grams and stemming) paired with Ridge Regression.
-- Ensemble Methods: Gradient Boosting (GBR) utilizing TF-IDF, SVD, and engineered "extra features."
+- Ensemble Methods: Gradient Boosting (GBR) utilizing TF-IDF, SVD, and engineered features.
 - Baseline Comparisons: Standard Bag-of-Words (BoW) and a simple mean-prediction baseline.
 
 The results were underwhelming:
@@ -141,7 +141,8 @@ The results were underwhelming:
 *   The mean baseline achieved an $R^2$ of $-0.000196$ (Test RMSE 149.97).
 *   The best traditional model, **TF-IDF + SVD + Ridge**, managed a Test $R^2$ of **0.0074** (Test RMSE 275.05) on the raw score target. 
 
-This near-zero R2 score underscores the inherent difficulty of the task: traditional frequency-based features are insufficient for capturing the complex, non-linear relationships that drive community engagement (scores) on Stack Overflow. This served as a strong justification for moving toward the deep learning approaches detailed below.
+We also briefly experimented with $log1p(score)$ targets (LinearSVR/SGD variants) to soften the extreme heavy tail, but the models merely learned to linearize the head of the distribution and lost the already fragile fidelity on rare high-score posts.
+This near-zero $R^2$ — regardless of the target scaling — underscores the inherent difficulty of the task: traditional frequency-based features are insufficient for capturing the complex, non-linear relationships that drive community engagement (scores) on Stack Overflow. This served as a strong justification for moving toward the deep learning approaches detailed below.
 
 ### Deep Learning Regressors
 
@@ -162,6 +163,14 @@ Table: Score Regression Performance on Test Set (using Embeddings). {#tbl:score-
 
 The DSF-MHSA Regressor emerged as the top performer, explaining approximately 19.9% of the score variance. Interestingly, in the regression context, the global focus of Multi-Head Self-Attention (MHSA) slightly outperformed the more targeted Cross-Attention mechanism.
 
+The factor that explains the MHSA outperforming the rest of the models is mostly attributed to how MHSA pools both streams at once. Long-distance hints about wording quality, structure, or clarity can be mixed without forcing one stream to “query” the other, so the clipped tag-count signal is tied back to the overall question narrative more reliably. By contrast the Cross-Attention variant was occasionally locked onto short title fragments while the body was ignored. In repeated runs the MHSA curves were also observed to be smoother on the validation set, which matches the small but consistent RMSE gap in @tbl:score-regression-results.
+
 Despite the improvement, diagnostic analysis revealed a common challenge in social data regression: while the model accurately predicts the vast majority of low-scoring posts, it struggles to capture the "viral" outliers or high-score peaks (@fig:scores-pred-actual). This suggests that high scores may be driven by external temporal factors or community dynamics not fully captured within the text embeddings alone.
+
+While conducting the experiments we trained both DSF regressors for the full 50 epochs without early stopping. The learning curves in @fig:score-prediction-overfitting show how quickly the validation loss diverges from the training loss, reinforcing the decision to keep a patience-based early stopping heuristic in the final runs (without it the DSF-MHSA RMSE degraded to 147.7 despite a seemingly stable validation loss around epoch 10).
+
+![Loss curves for DSF-MHSA and DSF Cross-Attention without early stopping.](img/04/score-prediction-overfitting.png){#fig:score-prediction-overfitting width=100%}
+
+![Cross-Attention absolute error by empirical score quantiles; bars show sample counts per bin.](img/04/mhsa-score-error-by-quartile.png){#fig:mhsa-score-error-by-quartile width=100%}
 
 ![Predicted vs Actual Scores (DSF-MHSA, Filtered Range)](img/04/scores-pred-actual.png){#fig:scores-pred-actual width=100%}
