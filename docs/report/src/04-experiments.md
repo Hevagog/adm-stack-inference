@@ -60,11 +60,85 @@ increasing $\gamma_-$ indefinitely leads to an overemphasis on recall at the exp
 This behavior indicates that while advanced loss functions can mitigate data imbalance, further performance gains likely require increasing the dataset size rather than just architectural tuning.
 
 #### DSE with Cross-Attention Fusion \newline
-*   To further combat overfitting and improve feature interaction, the MHSA was replaced with **Cross-Attention**, allowing the typically concise **Title embedding to "query" the verbose Body embedding** to extract relevant features.
-*   Additional regularization, **Manifold Mixup**, was applied to the embeddings during training to encourage smoother decision boundaries in the latent space.
-*   Trained over 100 epochs (~60 minutes) using OneCycleLR scheduling, this model achieved the best outcome: **F1 Micro 0.7253** and **F1 Weighted 0.7196**.
+To further combat overfitting and improve feature interaction, we evolved the
+architecture by replacing the Multi-Head Self-Attention (MHSA) with
+Cross-Attention. In the standard MHSA approach, the concatenated title and body
+features attend to themselves. However, this treats titles and question bodies
+equally informative sources.
+
+In our revised Cross-Attention design, we leverage the distinct roles of the inputs: the Title embedding acts as the Query, while the verbose Body embedding serves as the Key and Value. This architectural choice allows the concise, high-density information in the title to "search" the extensive body text for relevant supporting features, effectively filtering out noise from the longer description .
+Basically, our Cross-Attention layer poses the following question:
+
+> Given this Title, which parts of the Body Embedding are relevant?
+
+The projection layers for both streams were standardized using LayerNorm, GELU activation, and Dropout to ensure stable gradient flow before fusion.
+
+##### Data Mixup
+
+To further regularize the model, we implemented Manifold Mixup [@zhang2018mixupempiricalriskminimization]. Unlike standard data augmentation which operates on raw inputs, Manifold Mixup constructs virtual training examples by computing convex combinations of pairs of embedding vectors and their corresponding labels. By applying it on the embeddings, we encourage the model to behave linearly in-between training examples, smoothing the decision boundaries and reducing the memorization of outlier data points.
+
+##### Fine Tuning {#ft}
+
+While the cross-entropy loss optimizes the probability distribution, our evaluation metric (F1 Score) relies on binary decisions. The default decision threshold of 0.5 is rarely optimal for multi-label classification, especially with imbalanced classes. We performed a post-training optimization step, searching for the probability threshold that maximizes the F1 score on the validation set. This calibration ensures that the model's confidence aligns with the optimal precision-recall trade-off.
+
+
+##### Training Results \newline
+
+This model, trained over 100 epochs (~60 minutes) using a `OneCycleLR` scheduler, achieved our best performance to date:
+
+- F1 Micro: 0.7253
+- F1 Weighted: 0.7196
 
 ![Per tag performance of DSF with Cross-Attention Fusion](img/04/crossatt-performance.png){#fig:dsf-performance height=95%}
+
+The DSE with Cross-Attention Fusion mainly has trouble with tags like "import," "installation," and "validation," which probably suggests that it is difficult to distinguish between common technical noise and particular topical intent. The Asymmetric Loss (ASL) may have over-suppressed terms like "import" as "easy negatives" because they appear as boilerplate in nearly every code snippet. Furthermore, the model's inability to handle specialized tags like "asp.net-web-api" indicates that the Cross-Attention mechanism may occasionally lack a detailed enough Title "Query" to extract particular nuances from the verbose Body text.
+
+#### Sequence-Aware DSF with Cross-Attention \newline
+
+All approaches discussed so far compressed the question body into a single
+embedding vector before passing it into the network. This operation inevitably
+results in the loss of details.
+
+To address this, we developed the Sequence-Aware DSF. Instead of single vector,
+the body stream now processes a sequence of 32 embedding vectors (as mentioned
+in [Sequential Token Embedding](#seq-embedding)). This increase in data fidelity
+required a redesign of the network architecture.
+
+Architecture Changes:
+
+- Conv1d Projection:
+    - We replaced the simple Linear projection with a 1D Convolutional layer. This allows the model to capture local n-gram-like patterns within the sequence of embeddings.
+- Self-Attention Pre-Processing:
+    - Before fusion, the body sequence passes through a Self-Attention layer. This allows the model to construct a "global body context," relating distant parts of the text (e.g., an error message at the bottom to a code snippet at the top).
+- Cross-Attention Fusion:
+    - The Title (Query) attends to this refined Body Sequence (Key/Value), selecting the specific tokens most relevant to the question summary.
+
+##### FocalLoss and Label Smoothing \newline
+
+With the increased complexity of the Sequence-Aware model, we observed that AsymmetricLoss (ASL) and BCEWithLogitsLoss resulted in unstable training dynamics. The model tended to oscillate or converge to suboptimal minima. To stabilize optimization, we adopted Focal Loss [@lin2018focallossdenseobject].
+
+Focal Loss reshapes the standard cross-entropy loss to down-weight easy examples
+and focus training on hard negatives. By reducing the loss contribution of easy
+examples, the model is forced to learn the difficult, ambiguous cases that are
+common in the dataset.
+
+We further refined this by implementing *Focal Loss with Label Smoothing*.
+Standard one-hot targets (0 or 1) encourage the model to be overconfident,
+pushing logits towards infinity. Label smoothing relaxes these targets, and
+prevents overfitting by penalizing overconfidence, resulting in better
+generalization on the validation set.
+
+##### Training Results \newline
+
+Unfortunately, our models proved "too strong" for the available data. The networks easily memorized the training set, even with the aforementioned regularization techniques and custom loss functions.
+Ultimately, FocalLoss performed worse than BCEWithLogitsLoss (with class weights). 
+FocalLoss with Label Smoothing yielded slightly better results but still underperformed our simple MLP baseline, achieving an F1 Micro of 0.6441 and F1 Macro of 0.615.
+
+An important observation during the training phase was the sensitivity of the decision threshold. As detailed in the [Fine Tuning](#ft) section, the basic FocalLoss required a very high optimal threshold ($\approx$ 0.9), indicating that the model was overly confident in its predictions (logits pushed to extremes). in contrast, FocalLoss with Label Smoothing resulted in a more balanced optimal threshold of 0.4. 
+
+Throughout training, we consistently hit a "Generalization Ceiling." While the training loss approached near-zero (0.003), the validation F1 score remained stubbornly stuck at $\approx$ 0.64. Neither Manifold Mixup nor extensive fine-tuning yielded significant improvements.
+
+This behavior highlights a fundamental limitation often observed in transformer-based architectures: their lack of inductive bias. Unlike Convolutional Neural Networks, which have built-in assumptions about locality and translation invariance, or MLPs, which are structurally simpler, attention mechanisms are extremely flexible. This flexibility allows them to learn complex global relationships but also makes them highly "data-hungry" [@dosovitskiy2020image; @d2021convit]. Without massive datasets to constrain the search space, transformers tend to overfit the noise in small-to-medium datasets (like our 100k samples) rather than learning robust generalized features.
 
 #### Seq2Seq Model \newline
 
@@ -115,13 +189,11 @@ As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion o
 
 Table: Summary of Tag Prediction Results. {#tbl:tag-prediction-results}
 
-The final model mainly has trouble with tags like "import," "installation," and "validation," which probably suggests that it is difficult to distinguish between common technical noise and particular topical intent. The Asymmetric Loss (ASL) may have over-suppressed terms like "import" as "easy negatives" because they appear as boilerplate in nearly every code snippet. Furthermore, the model's inability to handle specialized tags like "asp.net-web-api" indicates that the Cross-Attention mechanism may occasionally lack a detailed enough Title "Query" to extract particular nuances from the verbose Body text.
+The attention-models in our opinion underperformed, due to a fundamental limitation often observed in transformer-based architectures: their lack of inductive bias. Unlike Convolutional Neural Networks, which have built-in assumptions about locality and translation invariance, or MLPs, which are structurally simpler, attention mechanisms are extremely flexible. This flexibility allows them to learn complex global relationships but also makes them highly "data-hungry" [@dosovitskiy2020image; @d2021convit]. Without massive datasets to constrain the search space, transformers tend to overfit the noise in small-to-medium datasets (like our 100k samples) rather than learning robust generalized features.
 
-<!-- 
-### Attention Analysis Visualization
+Our dataset, while seemingly large, was insufficient for a complex attention-based model to learn the intricate semantic mappings required for multi-label tagging without falling into the trap of memorization.
 
-Post-training analysis included visualizing the internal workings of the Cross-Attention mechanism to understand how the 8 attention heads weighted the relationship between the Title and Body embeddings for specific samples. This visualization provided diagnostic insight into the model's decision process (Figures 9 and 10).
- -->
+\newpage
 
 ##  Score Prediction
 

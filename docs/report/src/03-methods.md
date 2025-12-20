@@ -9,14 +9,14 @@ Textual data (titles and question bodies) was transformed into **4096-dimensiona
 
 We implemented two distinct embedding strategies:
 
-### 1. Global Document Embedding (Baseline)
+### Global Document Embedding (Baseline)
 
 - This approach served as the baseline due to its simplicity and relative computational speed.
 - Embed each question body, title and tag individually into an embedding vector.
 - This method assumes that the semantic context of the entire document can be effectively compressed into a single 4096-dimensional vector (using `float64` precision) without significant information loss.
 - Computation required approximately 6 hours using the `ollama` library [@ollama]. The resulting dataset occupied 3.3 GB of storage.
 
-### 2. Sequential Token Embedding
+### Sequential Token Embedding {#seq-embedding}
 
 - To address potential information loss in the baseline approach, we hypothesized that a single vector might fail to capture complex dependencies in longer texts.
 - Instead of pooling the text into one vector, we maintained a sequence of embeddings to preserve token-level knowledge. We defined a fixed sequence length of 4 tokens for the title and 32 tokens for the body, resulting in a distinct embedding vector for each token.
@@ -52,7 +52,7 @@ As we can see in Figure [@fig:tags-nn-cosine-sim], the distribution of nearest-n
 
 The tag space presents two major challenges: high dimensionality (4096-dimensional embeddings) and high cardinality (22,753 unique tags). These properties make traditional clustering methods difficult to apply directly. Because we aimed to preserve as much semantic structure as possible, we investigated several dimensionality reduction and clustering strategies.
 
-#### 1. **HDBSCAN**  \newline  
+### HDBSCAN  
 
 HDBSCAN (Hierarchical Density-Based Spatial Clustering of Applications with Noise) [@hdbscan] was initially considered, due to its ability to identify clusters of varying density and to naturally model noise. However, the method proved infeasible at our scale. During graph construction, the algorithm attempted to allocate a dense distance matrix, resulting in more than 64 GB of RAM usage:
 
@@ -62,7 +62,7 @@ MemoryError: Unable to allocate 74.5 GiB for an array with shape (99992, 99992) 
 
 Even incorporating Birch pre-clustering [@Zhang1997], which is often recommended to reduce memory footprint, did not sufficiently mitigate these requirements.
 
-#### 2. **UMAP**  \newline
+### UMAP
 
 Given its popularity for high-dimensional manifold learning and its strong community reports, particularly its successful use in document embedding tasks such as the [20 Newsgroups dataset](http://qwone.com/~jason/20Newsgroups/), we next explored UMAP (Uniform Manifold Approximation and Projection) [@mcinnes2020umapuniformmanifoldapproximation] as a potential solution.
 Encouraged by these findings, following community best practices, we tested two approaches:
@@ -117,7 +117,7 @@ This structure is also visible when comparing the distribution of a raw embeddin
 To reiterate, metric limitations, computational constraints, and mismatches between the UMAP's assumptions and the geometry of dense embedding space, combined with the extensive optuna hyperparameter search, for which the best candidate identified by the optimization process, the PCA alone discarded approximately 62% of the variance present, motivated us to search for different approach to dimensionality reduction.
 
 
-### 3. Recursive K-Means Clustering
+### Recursive K-Means Clustering
 
 Our initial approach was inspired by methodologies for hierarchical data organization, such as those described in engineering blogs by [Spotify](https://engineering.atspotify.com/2023/12/recursive-embedding-and-clustering) dealing with large-scale recommendation systems. We designed a Recursive K-Means Clustering algorithm to structure the tags into a navigable tree.
 
@@ -135,7 +135,7 @@ of classes**.
 | tf-idf | 0.070302 | [0.027263727, ...] | [0.024365697, ...] | 243 | [wpml, locale, ...] |
 | qt | 0.074746 | [0.01614129, ...] | [0.016203284, ...] | 106 | [qt, qml, pyqt, qasync, qt6] |
 
-### 4. Recursive Spherical K-Means Clustering
+### Recursive Spherical K-Means Clustering
 
 While effective for spatial data, Euclidean distance is often suboptimal for
 high-dimensional semantic embeddings, where the direction of the vector
