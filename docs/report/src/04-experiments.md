@@ -10,30 +10,59 @@ As a baseline, an XGBoost [@Chen_2016] model was trained on question body embedd
 
 This XGBoost model trained for 599 minutes. It achieved a **Weighted F1 Score of 0.6882** (and accuracy of 0.6928). The limitation of this approach was its inability to effectively model the complex, non-linear semantic interactions embedded in the 4096-dimensional vectors, forcing it to treat the dimensions largely independently. Nevertheless, this result provided a solid benchmark for subsequent deep learning models.
 
-![Confusion Matrix of XGBoost Classifier](img/04/xgboost-cm.png){#fig:xgboost-cm width=100%}
+![Confusion Matrix of XGBoost Classifier](img/04/xgboost-cm.png){#fig:xgboost-cm width=85%}
 
 ### Neural Network Architectures
 
 To improve baseline performance, several neural network architectures were explored to better capture the semantic relationships in the embeddings and to natively handle the multi-label nature of the task.
 
-#### Simple MLP Baseline
+#### Simple MLP Baseline \newline
 
-A basic Multi-Layer Perceptron (MLP) trained on the question body embeddings with `BCEWithLogitsLoss` achieved a weighted F1 score of approximately **0.6790**. This confirmed the need for richer architectures that could utilize both title and body context simultaneously.
+We implemented a baseline using a simple Multi-Layer Perceptron (MLP) trained on question body embeddings. Given the multi-label nature of the problem, where a single question may contain both popular tags (e.g., `python`) and rare tags (e.g., `darts`), we had to employ a loss function which takes it into consideration. Initially, we employed `BCEWithLogitsLoss`, which applies a binary cross-entropy loss independently to each class.
+
+While `BCEWithLogitsLoss` is standard for multi-label tasks, it treats all negative labels equally. In a sparse setting where most tags are negative for any given sample, the easy negatives can overwhelm the training signal. Despite these limitations, the MLP baseline achieved a weighted F1 score of approximately 0.6790.
+This reasonable performance confirmed the viability of the embedding approach but highlighted the need for richer architectures to capture the nuanced relationship between a question's title and its body.
+
+![Validation set performance for MLP baseline
+model](img/04/mlp-val-res.png){#fig:mlp-val width=75%}
 
 #### Dual-Stream Fusion Network (DSF) \newline
 
-Inspired by the 'Dual-stream fusion network with multi-head self-attention for multi-modal fake news detection' paper, we decided to implement our custom DSF model, where we used two streams of data: Title embedding and Body embedding.
+To better leverage the distinct semantic information contained in titles and bodies, we developed a custom Dual-Stream Fusion (DSF) network, adapting the architecture proposed by Yang et al. for multi-modal fake news detection [@YANG2024112358].
 
-1.  **DSF with Multi-Head Self-Attention (MHSA):**
-    *   This initial fusion mechanism involved concatenating the processed embeddings and applying MHSA, inspired by multi-modal classification work.
-    *   Initial training suffered from rapid overfitting. This was mitigated by applying a higher Dropout rate (0.5), switching to the AdamW optimizer (decoupling weight decay for better generalization), and adopting **Asymmetric Loss (ASL)**.
-    *   **ASL** was critical for addressing the class imbalance inherent in multi-label classification (where most labels are negative for any sample). ASL uses focusing parameters ($\gamma_-=4, \gamma_+=1$) to aggressively down-weight easy negative examples, forcing the model to focus on the difficult ones and on positive examples.
-    *   Result: **F1 Weighted 0.7110**.
+##### Architecture 
+The model processes the Title and Body embeddings through two separate streams. These streams are then integrated using a Multi-Head Self-Attention (MHSA) mechanism. The core idea is that the attention mechanism can dynamically weigh the importance of the title versus the body depending on the context. For instance, a short, distinct title might carry more weight than a long, vague body text.
 
-2.  **DSF with Cross-Attention Fusion (Optimal Model):**
-    *   To further combat overfitting and improve feature interaction, the MHSA was replaced with **Cross-Attention**, allowing the typically concise **Title embedding to "query" the verbose Body embedding** to extract relevant features.
-    *   Additional regularization, **Manifold Mixup**, was applied to the embeddings during training to encourage smoother decision boundaries in the latent space.
-    *   Trained over 100 epochs (~60 minutes) using OneCycleLR scheduling, this model achieved the best outcome: **F1 Micro 0.7253** and **F1 Weighted 0.7196**.
+##### Regularization and Overfitting
+Initial training runs revealed significant overfitting. The model's validation performance rapidly deteriorated below the MLP baseline after only a few epochs. This demonstrated the "double-edged sword" of attention mechanisms: while they offer high expressivity, they allow the model to easily memorize the relatively small dataset of ~100k samples. Standard regularization techniques—such as increased dropout, weight decay, and aggressive learning rate schedulers—yielded limited success.
+
+Notable improvement came from implementing a different loss function—`Assymetric Loss` (ASL)
+[@benbaruch2021asymmetriclossmultilabelclassification].
+In multi-label classification with many classes, the "negative" samples (tags
+not present) vastly outnumber the "positive" ones. Standard Cross Entropy allows
+these easy negatives to dominate the gradient, washing out the signal from the
+rare positives. ASL addresses this by dynamically down-weighting easy negatives.
+It introduces two focusing parameters, $\gamma_+$ and $\gamma_-$.
+By setting $\gamma_- > \gamma_+$, ASL aggressively suppresses the loss
+contribution from negative samples the model is already confident about. 
+This forces the optimization process to focus on "hard" negatives (confusing tags) and positive samples, effectively handling the extreme class imbalance without manual re-weighting. 
+
+We trained the optimized DSF model with `AdamW` optimizer, `ReduceLROnPlateau` scheduler, and ASL loss with $\gamma_- =4, \gamma_+ =1$ for
+50 epochs, which resulted in F1 score (micro) on validation set of 0.713, and
+weighted of 0.711.
+
+![Snippet of Per-Tag performance of DSF-MHSA model on the validation
+set. Each collumn reflects precision, recall f1-score respectively.](img/04/self-att-per-tag-performance.png){#fig:pt-sa width=60%}
+
+As seen in [@fig:pt-sa], the use of a high $\gamma_-$ in ASL successfully
+boosted recall for many classes. However, this comes with a trade-off: simply
+increasing $\gamma_-$ indefinitely leads to an overemphasis on recall at the expense of precision.
+This behavior indicates that while advanced loss functions can mitigate data imbalance, further performance gains likely require increasing the dataset size rather than just architectural tuning.
+
+#### DSE with Cross-Attention Fusion \newline
+*   To further combat overfitting and improve feature interaction, the MHSA was replaced with **Cross-Attention**, allowing the typically concise **Title embedding to "query" the verbose Body embedding** to extract relevant features.
+*   Additional regularization, **Manifold Mixup**, was applied to the embeddings during training to encourage smoother decision boundaries in the latent space.
+*   Trained over 100 epochs (~60 minutes) using OneCycleLR scheduling, this model achieved the best outcome: **F1 Micro 0.7253** and **F1 Weighted 0.7196**.
 
 ![Per tag performance of DSF with Cross-Attention Fusion](img/04/crossatt-performance.png){#fig:dsf-performance height=95%}
 
