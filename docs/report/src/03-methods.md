@@ -135,6 +135,8 @@ of classes**.
 | tf-idf | 0.070302 | [0.027263727, ...] | [0.024365697, ...] | 243 | [wpml, locale, ...] |
 | qt | 0.074746 | [0.01614129, ...] | [0.016203284, ...] | 106 | [qt, qml, pyqt, qasync, qt6] |
 
+Table: Sample results from initial K-Means Clustering run. {#tbl:rec-k-means-results}
+
 ### Recursive Spherical K-Means Clustering
 
 While effective for spatial data, Euclidean distance is often suboptimal for

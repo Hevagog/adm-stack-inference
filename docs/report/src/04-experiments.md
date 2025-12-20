@@ -59,7 +59,7 @@ boosted recall for many classes. However, this comes with a trade-off: simply
 increasing $\gamma_-$ indefinitely leads to an overemphasis on recall at the expense of precision.
 This behavior indicates that while advanced loss functions can mitigate data imbalance, further performance gains likely require increasing the dataset size rather than just architectural tuning.
 
-#### DSE with Cross-Attention Fusion \newline
+#### DSF with Cross-Attention Fusion \newline
 To further combat overfitting and improve feature interaction, we evolved the
 architecture by replacing the Multi-Head Self-Attention (MHSA) with
 Cross-Attention. In the standard MHSA approach, the concatenated title and body
@@ -91,7 +91,7 @@ This model, trained over 100 epochs (~60 minutes) using a `OneCycleLR` scheduler
 
 ![Per tag performance of DSF with Cross-Attention Fusion](img/04/crossatt-performance.png){#fig:dsf-performance height=95%}
 
-The DSE with Cross-Attention Fusion mainly has trouble with tags like "import," "installation," and "validation," which probably suggests that it is difficult to distinguish between common technical noise and particular topical intent. The Asymmetric Loss (ASL) may have over-suppressed terms like "import" as "easy negatives" because they appear as boilerplate in nearly every code snippet. Furthermore, the model's inability to handle specialized tags like "asp.net-web-api" indicates that the Cross-Attention mechanism may occasionally lack a detailed enough Title "Query" to extract particular nuances from the verbose Body text.
+The DSF with Cross-Attention Fusion mainly has trouble with tags like "import," "installation," and "validation," which probably suggests that it is difficult to distinguish between common technical noise and particular topical intent. The Asymmetric Loss (ASL) may have over-suppressed terms like "import" as "easy negatives" because they appear as boilerplate in nearly every code snippet. Furthermore, the model's inability to handle specialized tags like "asp.net-web-api" indicates that the Cross-Attention mechanism may occasionally lack a detailed enough Title "Query" to extract particular nuances from the verbose Body text.
 
 #### Sequence-Aware DSF with Cross-Attention \newline
 
@@ -142,29 +142,24 @@ This behavior highlights a fundamental limitation often observed in transformer-
 
 #### Seq2Seq Model \newline
 
-Instead of thinking about our task as a classification task, we could rephrase
-is as a Sequence to Seqence problem, where we want to model one sequence
-(question embedding) into another (tag(s) embedding(s)). 
-This approach has the biggest potential out of all mentioned earlier, since we
-can leverage the unprecedented rise of LLMs, by taking a pre-trained model (in
-our case `t5-small`) and fine-tune it for our task.
+Instead of defining our task as a classification problem, we can rephrase it as a Sequence to Sequence problem, where we map one sequence (question text) into another (tag tokens). This approach holds significant potential, as we can leverage the unprecedented capabilities of LLMs by taking a pre-trained model (in our case `t5-small`) and fine-tuning it for our task.
 
 The biggest advantage is also it's biggest disadvantage—all modern models
 require prohibitively large amount of compute, which forced us to pick a
 relatively small (60M) model. We picked `t5-small` because it was trained
-primarily on summarization and translation task, which is exactly what we want
-this model to do.
+primarily on summarization and translation tasks, which closely aligns with our
+goal of "summarizing" a question into tags.
 
 After 5 hours of training, we've achieved F1 micro score of 0.6676 and F1 macro
-of 0.625. While this may not sound as impressive as previous models, we have to
-keep in mind, the size of this model, and the transformers innate need for huge
-amount of data.
+of 0.625. While this may not sound as impressive as previous models, we must
+consider the size of this model and the transformers' innate need for huge
+amounts of data.
 
 ![Training Loss and Validation F1 over Steps](img/04/s2s-train.png){#fig:s2s-train width=80%}
 
-Another advantage of this model is the ease of use in terms of user readable
-format. Using the `transformers` we can easily create quick predicting function
-for any given question out of data:
+Another advantage of this model is the ease of use in terms of a user-readable 
+format. Using `transformers`, we can easily create a quick prediction function
+for any given question:
 
 ```python
 t = "How do I reverse a list?"
@@ -173,12 +168,13 @@ print(predict_custom_question(t, b))
 dataframe, python, sorting
 ```
 
-What's also powerful, is that the model itself infers how many tags are needed
-for each question.
+A powerful feature of this approach is that the model itself infers how many
+tags are needed for each question, rather than relying on a fixed top-k
+or threshold.
 
 ### Summary of Results
 
-As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion outperformed all other models, demonstrating the effectiveness of attention-based fusion and advanced loss functions in multi-label tag prediction tasks.
+As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion emerged as the superior model, achieving a Weighted F1 score of 0.7196.
 
 | **Model** | **F1 Score (Weighted)** |
 | :--- | :---: |
@@ -189,7 +185,16 @@ As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion o
 
 Table: Summary of Tag Prediction Results. {#tbl:tag-prediction-results}
 
-The attention-models in our opinion underperformed, due to a fundamental limitation often observed in transformer-based architectures: their lack of inductive bias. Unlike Convolutional Neural Networks, which have built-in assumptions about locality and translation invariance, or MLPs, which are structurally simpler, attention mechanisms are extremely flexible. This flexibility allows them to learn complex global relationships but also makes them highly "data-hungry" [@dosovitskiy2020image; @d2021convit]. Without massive datasets to constrain the search space, transformers tend to overfit the noise in small-to-medium datasets (like our 100k samples) rather than learning robust generalized features.
+#### Performance Analysis {#pa} \newline
+
+While the XGBoost seems to outperform Baseline MLP, we have to keep in mind,
+that XGBoost tackled much simpler task (mere single-class classification) and
+required more time to compute than all other models combined.
+
+The significant leap in performance came with the Dual-Stream Fusion (DSF) architectures. The introduction of Cross-Attention proved critical; by treating the Title as a "Query" and the Body as a "Key/Value," the model successfully filtered verbose noise from the body text. This approach, combined with Asymmetric Loss (ASL) to handle class imbalance and Manifold Mixup for regularization, allowed the model to generalize better than the Multi-Head Self-Attention (MHSA) variant.
+
+The more complex Sequence-Aware model and Seq2Seq in our opinion underperformed,
+due to a fundamental limitation often observed in transformer-based architectures: their lack of inductive bias. Unlike Convolutional Neural Networks, which have built-in assumptions about locality and translation invariance, or MLPs, which are structurally simpler, attention mechanisms are extremely flexible. This flexibility allows them to learn complex global relationships but also makes them highly "data-hungry" [@dosovitskiy2020image; @d2021convit]. Without massive datasets to constrain the search space, transformers tend to overfit the noise in small-to-medium datasets (like our 100k samples) rather than learning robust generalized features.
 
 Our dataset, while seemingly large, was insufficient for a complex attention-based model to learn the intricate semantic mappings required for multi-label tagging without falling into the trap of memorization.
 
