@@ -34,9 +34,9 @@ To better leverage the distinct semantic information contained in titles and bod
 The model processes the Title and Body embeddings through two separate streams. These streams are then integrated using a Multi-Head Self-Attention (MHSA) mechanism. The core idea is that the attention mechanism can dynamically weigh the importance of the title versus the body depending on the context. For instance, a short, distinct title might carry more weight than a long, vague body text.
 
 ##### Regularization and Overfitting
-Initial training runs revealed significant overfitting. The model's validation performance rapidly deteriorated below the MLP baseline after only a few epochs. This demonstrated the "double-edged sword" of attention mechanisms: while they offer high expressivity, they allow the model to easily memorize the relatively small dataset of ~100k samples. Standard regularization techniques—such as increased dropout, weight decay, and aggressive learning rate schedulers—yielded limited success.
+Initial training runs revealed significant overfitting. The model's validation performance rapidly deteriorated below the MLP baseline after only a few epochs. This demonstrated the "double-edged sword" of attention mechanisms: while they offer high expressivity, they allow the model to easily memorize the relatively small dataset of ~100k samples. Standard regularization techniques, such as increased dropout, weight decay, and aggressive learning rate schedulers yielded limited success.
 
-Notable improvement came from implementing a different loss function—`Assymetric Loss` (ASL)
+Notable improvement came from implementing a different loss function, namely `Assymetric Loss` (ASL)
 [@benbaruch2021asymmetriclossmultilabelclassification].
 In multi-label classification with many classes, the "negative" samples (tags
 not present) vastly outnumber the "positive" ones. Standard Cross Entropy allows
@@ -144,7 +144,7 @@ This behavior highlights a fundamental limitation often observed in transformer-
 
 Instead of defining our task as a classification problem, we can rephrase it as a Sequence to Sequence problem, where we map one sequence (question text) into another (tag tokens). This approach holds significant potential, as we can leverage the unprecedented capabilities of LLMs by taking a pre-trained model (in our case `t5-small`) and fine-tuning it for our task.
 
-The biggest advantage is also it's biggest disadvantage—all modern models
+The biggest advantage is also it's biggest disadvantage, all modern models
 require prohibitively large amount of compute, which forced us to pick a
 relatively small (60M) model. We picked `t5-small` because it was trained
 primarily on summarization and translation tasks, which closely aligns with our
@@ -185,7 +185,7 @@ As shown in [@tbl:tag-prediction-results], the DSF with Cross-Attention Fusion e
 
 Table: Summary of Tag Prediction Results. {#tbl:tag-prediction-results}
 
-#### Performance Analysis {#pa} \newline
+#### Performance Analysis \newline
 
 While the XGBoost seems to outperform Baseline MLP, we have to keep in mind,
 that XGBoost tackled much simpler task (mere single-class classification) and
@@ -219,7 +219,7 @@ The results were underwhelming:
 *   The best traditional model, **TF-IDF + SVD + Ridge**, managed a Test $R^2$ of **0.0074** (Test RMSE 275.05) on the raw score target. 
 
 We also briefly experimented with $log1p(score)$ targets (LinearSVR/SGD variants) to soften the extreme heavy tail, but the models merely learned to linearize the head of the distribution and lost the already fragile fidelity on rare high-score posts.
-This near-zero $R^2$ — regardless of the target scaling — underscores the inherent difficulty of the task: traditional frequency-based features are insufficient for capturing the complex, non-linear relationships that drive community engagement (scores) on Stack Overflow. This served as a strong justification for moving toward the deep learning approaches detailed below.
+This near-zero $R^2$, regardless of the target scaling, underscores the inherent difficulty of the task: traditional frequency-based features are insufficient for capturing the complex, non-linear relationships that drive community engagement (scores) on Stack Overflow. This served as a strong justification for moving toward the deep learning approaches detailed below.
 
 ### Deep Learning Regressors
 

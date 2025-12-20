@@ -1,14 +1,35 @@
 #  Conclusions and Future Work
 
-The overall project successfully navigated several data processing and modeling complexities inherent in large-scale textual data.
+In this project, we explored the viability of utilizing embeddings for the
+multi-label classification and score 
+prediction of StackExchange questions.
+Our investigation progressed from unsupervised dimensionality reduction to 
+complex, attention-based neural network architectures.
+
+We successfully demonstrated that the extreme cardinality of the tag space
+(over 22,000 unique labels) could be effectively managed through 
+**Recursive Spherical K-Means Clustering**. By organizing tags based on semantic
+cosine similarity rather than Euclidean distance, we reduced the target space
+to 100 dense, semantically coherent centroids without significant loss of
+information. This hierarchical structure proved superior to flat clustering
+methods and provided a robust foundation for classification.
+
+Our clustering algorithm also proved, that 'off-the-shelf' state-of-the-art
+algorithms (such as UMAP or HDBSCAN) are not universally optimal. By looking
+beyond standard scikit-learn implementations and adapting methodologies from
+engineering blogs and academic literature, we developed a custom solution, which
+not only solved the memory constraints that plagued standard algorithms but also
+provided superior computational efficiency for our specific high-dimensional
+embedding space.
+
 
 ## Key Successes and Insights
 
-*   **Robust Tag Reduction:** The greatest technical victory in the data preparation phase was the establishment of the **Recursive Spherical K-Means** pipeline, effectively reducing the 22,753 original tags to 100 semantically coherent centroids. This step was vital for making multi-label classification computationally feasible after the failure of unsupervised methods like UMAP/HDBSCAN optimization.
+*   **Robust Tag Reduction:** The greatest technical achievement in the data preparation phase was the establishment of the **Recursive Spherical K-Means** algorithm, effectively reducing the 22,753 original tags to 100 semantically coherent centroids. This step was vital for making multi-label classification computationally feasible after the failure of unsupervised methods like UMAP/HDBSCAN optimization.
 *   **Optimal Classifier Architecture:** The use of **Dual-Stream Fusion Networks** demonstrated a clear advantage over both traditional ML (XGBoost) and simple MLPs for multi-label classification. The best results were achieved by the **DSF with Cross-Attention Fusion (F1 Weighted 0.7196)**, incorporating both **Asymmetric Loss** to manage label imbalance and **Manifold Mixup** to improve generalization.
 *   **Inductive Bias vs. Data Volume:** The ultimate limitation observed across 
 our experiments in tag prediction, was the trade-off between model flexibility 
-and dataset size. As noted in [Performance Analysis](#pa), Transformer-based attention mechanisms lack the inductive bias of simpler architectures (like CNNs or MLPs). They are extremely flexible but highly "data-hungry".
+and dataset size. As noted in Performance Analysis, Transformer-based attention mechanisms lack the inductive bias of simpler architectures (like CNNs or MLPs). They are extremely flexible but highly "data-hungry".
 * Our dataset of $\approx$ 100,000 questions was insufficient to constrain the vast search space of the fully sequence-aware models, leading them to memorize noise rather than learn robust generalized features. Consequently, the DSF with Cross-Attention represented the optimal "sweet spot": it was complex enough to model semantic interactions via attention, but structured enough (compressing the body into a single embedding) to avoid the overfitting pitfalls of full sequence modeling.
 *   **Score Prediction Difficulty:** The consistently low $R^2$ values across all regression experiments confirm that predicting Stack Overflow scores from purely semantic content embeddings is inherently difficult due to the social/external factors influencing a question’s eventual popularity (score).
 
@@ -21,4 +42,9 @@ and dataset size. As noted in [Performance Analysis](#pa), Transformer-based att
 
 ## Future Work
 
-Future research should focus on mitigating the score prediction problem by incorporating features that capture non-textual quality signals, such as user reputation or time-of-day posting biases, which were outside the scope of this content-based embedding analysis. For classification, acquiring dataset of size around 10000000 could drastically enhance performance beyond the current pooled embedding methods.
+1. Future research should focus on mitigating the score prediction problem by incorporating features that capture non-textual quality signals, such as user reputation or time-of-day posting biases, which were outside the scope of this content-based embedding analysis. 
+2. Dataset Expansion and Augmentation: For classification, acquiring dataset of size around 10000000 could drastically enhance performance beyond the current pooled embedding methods.
+3. Hierarchical Classification: Currently, our model predicts the target clusters directly. A more refined approach would leverage the tree structure generated by our Recursive K-Means algorithm. 
+    - We propose a Hierarchical Classification pipeline, where a model first predicts the broad category (e.g., *Web Development*) and subsequent heads predict specific frameworks (e.g., *React*, *Angular*).
+4. Graph Neural Networks: Our current approach treats labels as independent targets (except for the implicit grouping in centroids). Implementing Graph Neural Networks or Graph Convolutional Networks to model the explicit dependencies between tags could significantly improve prediction accuracy, particularly for correlated technologies.
+
